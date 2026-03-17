@@ -183,13 +183,18 @@ const sendTelegramNotification = async (message) => {
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
     });
+    
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.error(`❌ Error Telegram API [Status ${res.status}]: ${errorBody}`);
+    }
   } catch (error) {
-    console.error('Error Telegram:', error.message);
+    console.error('❌ Error de red Telegram:', error.message);
   }
 };
 
@@ -286,12 +291,10 @@ const runDiscovery = async (page) => {
     // Cargamos los trámites desde el mapa (ya sea si acabamos de discovery o si ya existía)
     loadTargetsFromMap();
 
-    if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
-      console.warn('⚠️  TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados. Las notificaciones Telegram están DESACTIVADAS.');
-    } else {
-      await sendTelegramNotification(`🚀 <b>Bot iniciado</b>\n📋 Monitoreando <b>${TARGET_URLS.length}</b> trámite(s)\n✅ Notificaciones Telegram activas.`);
-      console.log('✅ Telegram configurado. Notificaciones activas.');
-    }
+    // Cargamos los trámites desde el mapa
+    loadTargetsFromMap();
+
+    console.log(`✅ Telegram configurado. Monitoreando ${TARGET_URLS.length} trámites.`);
 
     let attempt = 1;
     const notifiedUrls = new Set(); // Evita spam: solo notifica 1 vez por trámite por run
