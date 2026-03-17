@@ -252,13 +252,23 @@ const runDiscovery = async (page) => {
   const isIntensiveMode = process.env.INTENSIVE === 'true'; // Forzado manual
   const startTime = Date.now();
 
+  console.log(`🚀 Iniciando scraper [Modo: ${isDiscoveryMode ? 'Discovery' : 'Default'}] [Intensivo: ${isIntensiveMode ? 'SÍ' : 'NO'}]`);
+
+  // Notificación de inicio de Telegram (Debug para GitHub Actions)
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+    const startMsg = `🚀 <b>Bot iniciado en GitHub</b>\n🔋 Modo: <b>${isDiscoveryMode ? 'Discovery' : 'Default'}</b>\n🔥 Intensivo: <b>${isIntensiveMode ? 'FORZADO' : 'AUTO'}</b>`;
+    await sendTelegramNotification(startMsg);
+  }
+
   // --- GUARDIA DE FERIADOS ---
   // Si estamos en GitHub Actions (headless) y NO es modo forzado ni discovery,
   // verificamos que hoy sea el primer día hábil de la semana en Argentina.
   if (isHeadless && !isDiscoveryMode && !isIntensiveMode) {
     const shouldRun = await checkIsFirstBusinessDay();
     if (!shouldRun) {
-      console.log('🚫 El modo intensivo no aplica hoy. Saliendo.');
+      const skipMsg = '🚫 El modo intensivo no aplica hoy (no es primer día hábil). Saliendo.';
+      console.log(skipMsg);
+      await sendTelegramNotification(skipMsg);
       process.exit(0);
     }
   }
