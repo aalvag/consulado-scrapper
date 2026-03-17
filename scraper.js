@@ -65,8 +65,12 @@ const getArgentinaDate = () => {
  */
 const fetchArgHolidays = async (year) => {
   const url = `https://nolaborables.com.ar/api/v2/feriados/${year}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return new Set(
       data.map(h => {
@@ -76,7 +80,8 @@ const fetchArgHolidays = async (year) => {
       })
     );
   } catch (err) {
-    console.warn('⚠️ No se pudo obtener feriados. Asumimos que hoy no es feriado:', err.message);
+    clearTimeout(timeoutId);
+    console.warn(`[WARN] No se pudo obtener feriados (${year}):`, err.message);
     return new Set();
   }
 };
@@ -179,22 +184,33 @@ const sendLocalNotification = (title, message) => {
 const sendTelegramNotification = async (message) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return;
+  if (!token || !chatId) {
+    console.warn('[WARN] Telegram not configured (missing token/chatId)');
+    return;
+  }
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+  
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
     if (!res.ok) {
       const errorBody = await res.text();
-      console.error(`❌ Error Telegram API [Status ${res.status}]: ${errorBody}`);
+      console.error(`[ERROR] Telegram API [Status ${res.status}]: ${errorBody}`);
+    } else {
+      console.log(`[INFO] Telegram message sent [Length: ${message.length}]`);
     }
   } catch (error) {
-    console.error('❌ Error de red Telegram:', error.message);
+    clearTimeout(timeoutId);
+    console.error(`[ERROR] Telegram Network Error: ${error.message}`);
   }
 };
 
@@ -252,11 +268,16 @@ const runDiscovery = async (page) => {
   const isIntensiveMode = process.env.INTENSIVE === 'true'; // Forzado manual
   const startTime = Date.now();
 
-  console.log(`🚀 Iniciando scraper [Modo: ${isDiscoveryMode ? 'Discovery' : 'Default'}] [Intensivo: ${isIntensiveMode ? 'SÍ' : 'NO'}]`);
+  console.log(`[SCRAPER] Iniciando [Modo: ${isDiscoveryMode ? 'Discovery' : 'Default'}] [Intensivo: ${isIntensiveMode ? 'SÍ' : 'NO'}] [Headless: ${isHeadless}]`);
+  
+  // Debug de secretos (mascarados)
+  const tokenMask = process.env.TELEGRAM_BOT_TOKEN ? `${process.env.TELEGRAM_BOT_TOKEN.substring(0,6)}...` : 'MISSING';
+  const chatMask = process.env.TELEGRAM_CHAT_ID ? `${process.env.TELEGRAM_CHAT_ID.substring(0,3)}...` : 'MISSING';
+  console.log(`[DEBUG] Secrets config: Token=${tokenMask}, ChatId=${chatMask}`);
 
   // Notificación de inicio de Telegram (Debug para GitHub Actions)
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    const startMsg = `🚀 <b>Bot iniciado en GitHub</b>\n🔋 Modo: <b>${isDiscoveryMode ? 'Discovery' : 'Default'}</b>\n🔥 Intensivo: <b>${isIntensiveMode ? 'FORZADO' : 'AUTO'}</b>`;
+    const startMsg = `<b>Scraper Iniciado en GitHub</b>\n🔋 Modo: <b>${isDiscoveryMode ? 'Discovery' : 'Default'}</b>\n🔥 Intensivo: <b>${isIntensiveMode ? 'FORZADO' : 'AUTO'}</b>`;
     await sendTelegramNotification(startMsg);
   }
 
@@ -266,7 +287,7 @@ const runDiscovery = async (page) => {
   if (isHeadless && !isDiscoveryMode && !isIntensiveMode) {
     const shouldRun = await checkIsFirstBusinessDay();
     if (!shouldRun) {
-      const skipMsg = '🚫 El modo intensivo no aplica hoy (no es primer día hábil). Saliendo.';
+      const skipMsg = '[EXIT] El modo intensivo no aplica hoy (no es primer dia habil). Saliendo.';
       console.log(skipMsg);
       await sendTelegramNotification(skipMsg);
       process.exit(0);
