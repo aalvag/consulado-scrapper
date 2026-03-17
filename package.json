@@ -1,0 +1,17 @@
+{
+  "name": "consulado-scrapper",
+  "version": "1.0.0",
+  "description": "Scraper resiliente con Playwright para monitoreo de turnos",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "dev": "HEADLESS=false node scraper.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "node-notifier": "^10.0.1",
+    "playwright": "^1.42.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}

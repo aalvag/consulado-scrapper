@@ -1,0 +1,10 @@
+node_modules/
+.env
+
+# Evidencia generada por el scraper
+*.png
+*.html
+!README.md
+
+# Sesión del navegador (contiene cookies - ignorar para no exponer credenciales)
+storageState.json

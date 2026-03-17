@@ -1,0 +1,75 @@
+name: Turnos Scraper
+
+on:
+  schedule:
+    # Modo Ahorro: Corre cada hora todos los días para no perderse nada
+    - cron: '0 * * * *'
+    # Modo Intensivo: Corre cada 15 min de Lun a Vie a las 10:45-11:30 ARG (13:45-14:30 UTC)
+    # La guardia de feriados DENTRO del script decide si ese dia aplica o no.
+    - cron: '45,0,15,30 13-14 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de ejecución (default o discovery)'
+        required: false
+        default: 'default'
+      monitor_all:
+        description: '¿Monitorear TODOS los trámites descubiertos? (true/false)'
+        required: false
+        default: 'false'
+      intensive:
+        description: 'Forzar modo intensivo aunque no sea el primer día hábil (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    # Timeout de seguridad para que la Action no quede colgada cobrando minutos
+    timeout-minutes: 15 
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Restore Session Cache
+        uses: actions/cache@v4
+        with:
+          path: storageState.json
+          key: ${{ runner.os }}-session-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-session-
+
+      - name: Install Playwright & Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Scraper (Enterprise Mode)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CONSULADO_IDU: ${{ secrets.CONSULADO_IDU }}
+          CONSULADO_PASS: ${{ secrets.CONSULADO_PASS }}
+          MODE: ${{ github.event.inputs.mode || 'default' }}
+          MONITOR_ALL: ${{ github.event.inputs.monitor_all || 'false' }}
+          INTENSIVE: ${{ github.event.inputs.intensive || 'false' }}
+        run: npm start
+
+      - name: Upload Forensic Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-evidence-${{ github.run_number }}
+          path: |
+            *.png
+            *.html
+            storageState.json
+          if-no-files-found: ignore
+          retention-days: 2
