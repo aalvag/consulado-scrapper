@@ -1,5 +1,9 @@
 name: Turnos Scraper
 
+env:
+  # Opt into Node.js 24 for all actions to avoid deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     # Modo Ahorro: Corre cada hora todos los días para no perderse nada
@@ -27,8 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     # Timeout de seguridad para que la Action no quede colgada cobrando minutos
     timeout-minutes: 15 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
       - name: Checkout repository
